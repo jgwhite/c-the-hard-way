@@ -8,6 +8,9 @@ int main(int argc, char *argv[])
 	// why am I skipping argv[0]?
 	for(i = 1; i < argc; i++) {
 		printf("arg %d: %s\n", i, argv[i]);
+		if (i > 2) {
+			break;
+		}
 	}
 
 	// let's make our own array of strings
