@@ -7,6 +7,10 @@
 #define MAX_DATA 512
 #define MAX_ROWS 100
 
+/*
+ * Define the Address struct using MAX_DATA to define
+ * fixed size string fields `name` and `email`.
+ */
 struct Address {
 	int id;
 	int set;
@@ -14,17 +18,30 @@ struct Address {
 	char email[MAX_DATA];
 };
 
+/*
+ * Define the Database struct with fixed number of rows
+ * derived from MAX_ROWS.
+ */
 struct Database {
 	struct Address rows[MAX_ROWS];
 };
 
+/*
+ * Define the Connection struct which contains a pointer
+ * to a FILE struct and a pointer to a Database struct.
+ */
 struct Connection {
 	FILE *file;
 	struct Database *db;
 };
 
+/*
+ * Print `message` and terminate the program.
+ */
 void die(const char *message)
 {
+	// Some functions will set the errno global variable.
+	// If so, use perror.
 	if(errno) {
 		perror(message);
 	} else {
@@ -34,28 +51,43 @@ void die(const char *message)
 	exit(1);
 }
 
+/*
+ * Pretty print `addr`.
+ */
 void Address_print(struct Address *addr)
 {
 	printf("%d %s %s\n", addr->id, addr->name, addr->email);
 }
 
+/*
+ * Read one Database-sized item from the conn->file stream into conn->db.
+ */
 void Database_load(struct Connection *conn)
 {
 	int rc = fread(conn->db, sizeof(struct Database), 1, conn->file);
 	if(rc != 1) die("Failed to load database.");
 }
 
+/*
+ * Create a new connection to database at `filename` in given `mode`.
+ */
 struct Connection *Database_open(const char *filename, char mode)
 {
+	// Allocate enough bytes for a new Connection on the heap.
 	struct Connection *conn = malloc(sizeof(struct Connection));
 	if(!conn) die("Memory error");
 
+	// Allocate enough bytes for a new Database on the heap and store
+	// and pointer in the freshly allocated Connection.
 	conn->db = malloc(sizeof(struct Database));
 	if(!conn->db) die("Memory error");
 
 	if(mode == 'c') {
+		// If in 'c' (create) mode, open the file in write-only mode.
+		// This will truncate the file to zero.
 		conn->file = fopen(filename, "w");
 	} else {
+		// Otherwise, open in read-write mode.
 		conn->file = fopen(filename, "r+");
 
 		if(conn->file) {
@@ -68,6 +100,10 @@ struct Connection *Database_open(const char *filename, char mode)
 	return conn;
 }
 
+/*
+ * Close the stream in `conn->file` and free memory allocated for `conn->db`
+ * and `conn` itself.
+ */
 void Database_close(struct Connection *conn)
 {
 	if(conn) {
@@ -77,29 +113,41 @@ void Database_close(struct Connection *conn)
 	}
 }
 
+/*
+ * Flush contents of `conn->db` to `conn->file`.
+ */
 void Database_write(struct Connection *conn)
 {
+	// Rewind the file stream first.
 	rewind(conn->file);
 
+	// Send bytes from conn->db to conn->file stream.
 	int rc = fwrite(conn->db, sizeof(struct Database), 1, conn->file);
 	if(rc !=1) die("Failed to write database.");
 
+	// Flush conn->file stream to the filesystem.
 	rc = fflush(conn->file);
 	if(rc == -1) die("Cannot flush database.");
 }
 
+/*
+ * Initialize contents of `conn->db`.
+ */
 void Database_create(struct Connection *conn)
 {
 	int i = 0;
 
 	for(i = 0; i < MAX_ROWS; i++) {
-		// make a prototype to initialize it
+		// Make a prototype to initialize it.
 		struct Address addr = {.id = i, .set = 0};
-		// then just assign it
+		// Then just assign it.
 		conn->db->rows[i] = addr;
 	}
 }
 
+/*
+ * Set `name` and `email` for record `id`.
+ */
 void Database_set(struct Connection *conn, int id, const char *name, const char *email)
 {
 	struct Address *addr = &conn->db->rows[id];
@@ -115,6 +163,9 @@ void Database_set(struct Connection *conn, int id, const char *name, const char 
 	if(!res) die("Email copy failed");
 }
 
+/*
+ * Print Address at `id`.
+ */
 void Database_get(struct Connection *conn, int id)
 {
 	struct Address *addr = &conn->db->rows[id];
@@ -126,12 +177,18 @@ void Database_get(struct Connection *conn, int id)
 	}
 }
 
+/*
+ * Re-initialize Address at `id` to blank slate.
+ */
 void Database_delete(struct Connection *conn, int id)
 {
 	struct Address addr = {.id = id, .set = 0};
 	conn->db->rows[id] = addr;
 }
 
+/*
+ * Print all non-blank addresses in conn->db.
+ */
 void Database_list(struct Connection *conn)
 {
 	int i = 0;
